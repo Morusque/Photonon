@@ -1,4 +1,8 @@
 
+// must include :
+// code/metadata-extractor-2.19.0.jar
+// code/xmpcore-6.1.8.jar
+
 import com.drew.imaging.*;
 import com.drew.metadata.*;
 import com.drew.metadata.exif.*;
