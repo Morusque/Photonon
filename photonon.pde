@@ -8,6 +8,8 @@ import com.drew.metadata.*;
 import com.drew.metadata.exif.*;
 import processing.sound.*;
 
+import javax.sound.midi.*;
+
 ArrayList<String> files = new ArrayList<String>();
 ArrayList<PImage> images = new ArrayList<PImage>();
 
@@ -36,13 +38,21 @@ int displayMode = 0;
 // 0 noir + phrases
 // 1 generative slideshow
 // 2 smear
-// 3 music
+// 3 symmetries
 // 4 sorting
 
 AudioIn input;
 Amplitude rms;
 float audioSum = 0, smoothingFactor = 0.2;
-boolean audioInputUsed = false;
+float midiMod = 0;
+int modulationSource = 0;
+// 0 = autonoous
+// 1 = audio
+// 2 = midi
+
+MidiDevice device;
+Transmitter transmitter;
+Receiver receiver;
 
 boolean videoCaptured = false;
 int videoFrames = 0;
@@ -67,6 +77,25 @@ void setup() {
   input.start();
   rms = new Amplitude(this);
   rms.input(input);
+
+  println("Available MIDI Devices:");
+  MidiDevice.Info[] infos = MidiSystem.getMidiDeviceInfo();
+  for (int i = 0; i < infos.length; i++) {
+    println("["+i+"] " + infos[i].getName());
+  }
+
+  try {
+    device = MidiSystem.getMidiDevice(infos[9]); // Try first MIDI device
+    device.open();
+    transmitter = device.getTransmitter();
+    receiver = new MidiInputReceiver();
+    transmitter.setReceiver(receiver);
+    println("MIDI Device Opened: " + device.getDeviceInfo().getName());
+  }
+  catch (Exception e) {
+    println("Error: " + e);
+  }
+
   loadPack(-1);
   shiftImageList();
   noStroke();
@@ -101,7 +130,8 @@ void draw() {
   if (displayMode == 3) {
     // symmetries
     float excenter = map(sin((float)millis()/1000), -1, 1, 0, 1) * min(symIm[0].width-width/2, symIm[0].height-height/2);
-    if (audioInputUsed) excenter = pow(audioSum, 0.5) * min(symIm[0].width-width/2, symIm[0].height-height/2);
+    if (modulationSource==1) excenter = pow(audioSum, 0.5) * min(symIm[0].width-width/2, symIm[0].height-height/2);
+    if (modulationSource==2) excenter = pow(midiMod, 0.5) * min(symIm[0].width-width/2, symIm[0].height-height/2);
 
     int cropW = ceil((float) width / 2 + excenter);
     int cropH = ceil((float) height / 2 + excenter);
@@ -124,7 +154,8 @@ void draw() {
   if (displayMode == 4) {
     loadPixels();
     int nbIterations = 50;
-    if (audioInputUsed) nbIterations = floor((float)nbIterations*audioSum);
+    if (modulationSource == 1) nbIterations = floor((float)nbIterations*audioSum);
+    if (modulationSource == 2) nbIterations = floor((float)nbIterations*midiMod);
     for (int i = 0; i < nbIterations; i++) {
       int x = floor(random(width));
       int yA = constrain(floor(random(-height / 2, height - 2)), 0, height);
@@ -142,10 +173,30 @@ void draw() {
     }
     updatePixels();
   }
+
+  if (!midiInteraction.equals("")) {
+    interact(midiInteraction);
+    midiInteraction="";
+  }
 }
 
 void keyPressed() {
-  if (key=='a') {// black then text
+  if (key=='a') interact("black");
+  if (key=='z') interact("slideshows");
+  if (key=='e') interact("smear");
+  if (key=='r') interact("symmetries");
+  if (key=='t') interact("sorting");
+  if (key=='i') interact("modulationSource");
+  if (key=='v') interact("videoRec");
+  if (key=='p') interact("packs");
+  if (key=='l') interact("reload");
+  if (key=='c') interact("screenshot");
+  if (key=='b') interact("colorMode");
+}
+
+void interact(String command) {
+  println("command : "+command);
+  if (command.equals("black")) {// black then text
     if (displayMode!=0) phrase= "";
     else phrase = text.get(floor(random(text.size())));
     displayMode = 0;
@@ -157,53 +208,53 @@ void keyPressed() {
     text(phrase, 0, 0, width, height);
     if (videoCaptured) captureVideoFrame();
   }
-  if (key=='z') {// slideshows
+  if (command.equals("slideshows")) {// slideshows
     displayMode = 1;
     tempoMs = millis()-lastTap;
     lastTap = millis();
     lastMs = millis();
     displayComposition();
   }
-  if (key=='e') {// smear effect
+  if (command.equals("smear")) {// smear effect
     displayMode = 2;
     copyRectangles.clear();
     while (copyRectangles.size()<50) addNewCopyRectangle();
   }
-  if (key=='r') {// symmetries
+  if (command.equals("symmetries")) {// symmetries
     displayMode = 3;
     prepareSymImages();
   }
-  if (key=='t') {// sorting
+  if (command.equals("sorting")) {// sorting
     displayMode = 4;
   }
-  if (key=='i') {// enable/disable audio input
-    audioInputUsed ^= true;
-    println("audioInputUsed : "+audioInputUsed);
+  if (command.equals("modulationSource")) {// enable/disable audio input or midi mod
+    modulationSource = (modulationSource+1)%3;
+    println("modulation source : "+modulationSource);// 0 = auto, 1 = audio, 2 = midi
   }
-  if (key=='v') {// enable/disable video recording
+  if (command.equals("videoRec")) {// enable/disable video recording
     videoCaptured ^= true;
     println("videoCaptured : "+videoCaptured);
   }
-  if (key == 'p') { // switch between packs
+  if (command.equals("packs")) { // switch between packs
     currentPackIndex++;
     if (currentPackIndex>=packNames.length) currentPackIndex=-1;
     if (currentPackIndex==-1) println("current pack : (all packs)");
     else println("current pack : "+packNames[currentPackIndex]);
     loadPack(currentPackIndex);
   }
-  if (key == 'l') { // reload image buffer based on current pack
+  if (command.equals("reload")) { // reload image buffer based on current pack
     println("reload images");
     images.clear();
     shiftImageList();
   }
-  if (key=='c') {// take a single screenshot
+  if (command.equals("screenshot")) {// take a single screenshot
     int nbExports = 0;
     String filePath;
     do filePath = dataPath("results/result" + nf(nbExports++, 6) + ".png");
     while (new File(filePath).exists());
     save(filePath);
   }
-  if (key=='b') {// switch color mode
+  if (command.equals("colorMode")) {// switch color mode
     colorMode=(colorMode+1)%4;
     println("colorMode : "+colorMode);// 0 = normal, 1 = black and white, 2 = bitmap, 3 = arbitrary
   }
@@ -522,12 +573,15 @@ class CopyRectangle {
     if (isVisible()) {
       grabbed = get(round(a.x), round(a.y), round(size.x), round(size.y));
     }
-    if (audioInputUsed) {
+    if (modulationSource==1) {
       if (random(1)<pow(audioSum, 2.0)) dirA = new PVector(random(1)<0.5?round(random(-3, 3)):0, random(1)<0.5?round(random(-3, 3)):0);
+    } else if (modulationSource==2) {
+      if (random(1)<pow(midiMod, 2.0)) dirA = new PVector(random(1)<0.5?round(random(-3, 3)):0, random(1)<0.5?round(random(-3, 3)):0);
     } else if (random(1)<0.01) {
       dirA = new PVector(random(1)<0.5?round(random(-3, 3)):0, random(1)<0.5?round(random(-3, 3)):0);
     }
-    if (audioInputUsed) a.add(PVector.mult(dirA, pow(audioSum, 0.5)*2.0));
+    if (modulationSource==1) a.add(PVector.mult(dirA, pow(audioSum, 0.5)*2.0));
+    if (modulationSource==2) a.add(PVector.mult(dirA, pow(midiMod, 0.5)*2.0));
     else a.add(dirA);
     a.x = round(a.x);
     a.y = round(a.y);
@@ -721,4 +775,51 @@ String[] getSubfolders(String baseFolder) {
 
   for (File subFolder : subFolders) result.add(subFolder.getName());
   return result.toArray(new String[0]);
+}
+
+class MidiInputReceiver implements Receiver {
+  public void send(MidiMessage message, long timeStamp) {
+    byte[] data = message.getMessage();
+    int status = data[0] & 0xF0;
+    int channel = (data[0] & 0x0F) + 1;
+    int data1 = data.length > 1 ? data[1] & 0x7F : 0;
+    int data2 = data.length > 2 ? data[2] & 0x7F : 0;
+
+    if (status == 0xB0) { // **Control Change (CC)**
+      ccReceived(data1, data2, channel);
+    } else if (status == 0x90 && data2 > 0) { // **Note On**
+      noteReceived(data1, data2, channel);
+    } else if (status == 0x80 || (status == 0x90 && data2 == 0)) { // **Note Off**
+      noteReleased(data1, channel);
+    }
+  }
+
+  public void close() {
+  }
+}
+
+void ccReceived(int cc, int value, int channel) {
+  println("CC: " + cc + " | Value: " + value + " | Channel: " + channel);
+  if (cc==1) tempoMs = pow((float)value/127, 2)*10000;
+  if (cc==2) midiMod = (float)value/127;
+}
+
+String midiInteraction ="";
+void noteReceived(int note, int velocity, int channel) {
+  println("Note ON: " + note + " | Velocity: " + velocity + " | Channel: " + channel);
+  if (note==40) midiInteraction="black";
+  if (note==41) midiInteraction="slideshows";
+  if (note==42) midiInteraction="smear";
+  if (note==43) midiInteraction="symmetries";
+  if (note==36) midiInteraction="sorting";
+  if (note==37) midiInteraction="modulationSource";
+  if (note==38) midiInteraction="videoRec";
+  if (note==39) midiInteraction="packs";
+  if (note==44) midiInteraction="reload";
+  if (note==45) midiInteraction="screenshot";
+  if (note==46) midiInteraction="colorMode";
+}
+
+void noteReleased(int note, int channel) {
+  println("Note OFF: " + note + " | Channel: " + channel);
 }
