@@ -37,6 +37,7 @@ int displayMode = 0;
 // 1 generative slideshow
 // 2 smear
 // 3 music
+// 4 sorting
 
 AudioIn input;
 Amplitude rms;
@@ -53,7 +54,7 @@ int colorMode = 0;
 void setup() {
   fullScreen();
   frameRate(60);
-  font = loadFont(dataPath("files/CourierNewPS-BoldMT-100.vlw"));
+  font = loadFont(dataPath("files/CourierPrime-150.vlw"));
   packNames = getSubfolders(dataPath("photos"));
   String[] textFiles = getAllFilesFrom(dataPath("textes"));
   for (String tF : textFiles) {
