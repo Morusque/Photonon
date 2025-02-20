@@ -61,6 +61,10 @@ int preloadingCue = 5;// number of images to preload (higher is more diversity b
 
 int colorMode = 0;
 
+boolean freezeEffect = false;
+
+int currentLineText = 0;
+
 void setup() {
   fullScreen();
   frameRate(60);
@@ -166,7 +170,7 @@ void draw() {
       for (int y = 0; y < len; y++) {
         cs[y] = pixels[pixelIndex + y * width];
       }
-      sortColorsByBrightness(cs); // Sort brightness
+      if (!freezeEffect) sortColorsByBrightness(cs); // Sort brightness
       for (int y = 0; y < len; y++) {
         pixels[pixelIndex + y * width] = cs[y];
       }
@@ -192,13 +196,15 @@ void keyPressed() {
   if (key=='l') interact("reload");
   if (key=='c') interact("screenshot");
   if (key=='b') interact("colorMode");
+  if (key=='f') interact("freezeEffect");
 }
 
 void interact(String command) {
   println("command : "+command);
   if (command.equals("black")) {// black then text
     if (displayMode!=0) phrase= "";
-    else phrase = text.get(floor(random(text.size())));
+    else phrase = text.get(currentLineText);
+    currentLineText = (currentLineText+1)%text.size();
     displayMode = 0;
     background(0);
     fill(0xFF);
@@ -257,6 +263,10 @@ void interact(String command) {
   if (command.equals("colorMode")) {// switch color mode
     colorMode=(colorMode+1)%4;
     println("colorMode : "+colorMode);// 0 = normal, 1 = black and white, 2 = bitmap, 3 = arbitrary
+  }
+  if (command.equals("freezeEffect")) {// freeze effect
+    freezeEffect ^= true;
+    println("freeze effect : "+freezeEffect);
   }
 }
 
@@ -411,7 +421,9 @@ void displayTextAt(PVector textEPos, PVector textESiz) {
     }
   }
   textMode(CORNER);
-  text(text.get(floor(random(text.size()))), textEPos.x+borderMargins, textEPos.y+borderMargins, textESiz.x-borderMargins*2, textESiz.y-borderMargins*2);
+  String phrase = text.get(currentLineText);
+  currentLineText = (currentLineText+1)%text.size();
+  text(phrase, textEPos.x+borderMargins, textEPos.y+borderMargins, textESiz.x-borderMargins*2, textESiz.y-borderMargins*2);
 }
 
 void shiftImageList() {
@@ -580,12 +592,14 @@ class CopyRectangle {
     } else if (random(1)<0.01) {
       dirA = new PVector(random(1)<0.5?round(random(-3, 3)):0, random(1)<0.5?round(random(-3, 3)):0);
     }
-    if (modulationSource==1) a.add(PVector.mult(dirA, pow(audioSum, 0.5)*2.0));
-    if (modulationSource==2) a.add(PVector.mult(dirA, pow(midiMod, 0.5)*2.0));
-    else a.add(dirA);
-    a.x = round(a.x);
-    a.y = round(a.y);
-    if (grabbed!=null) image(grabbed, a.x, a.y, size.x, size.y);
+    if (!freezeEffect) {
+      if (modulationSource==1) a.add(PVector.mult(dirA, pow(audioSum, 0.5)*2.0));
+      if (modulationSource==2) a.add(PVector.mult(dirA, pow(midiMod, 0.5)*2.0));
+      else a.add(dirA);
+      a.x = round(a.x);
+      a.y = round(a.y);
+      if (grabbed!=null) image(grabbed, a.x, a.y, size.x, size.y);
+    }
   }
   boolean isVisible() {
     float margin = 130;
