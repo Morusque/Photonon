@@ -403,27 +403,88 @@ void captureVideoFrame() {
 void displayTextAt(PVector textEPos, PVector textESiz) {
   float borderMargins = 3;
   float tS = map(textESiz.x, 0, width, 20, 150);
-  textSize(tS);
-  textFont(font, tS);
   textAlign(CENTER, CENTER);
   float[] bgBrightness = averageBrightness(get(floor(textEPos.x), floor(textEPos.y), floor(textESiz.x), floor(textESiz.y))) ;
+  color textColor = color(0xFF);
   if (lerp(bgBrightness[0], bgBrightness[2], 0.5)<100) fill(0xFF);
   else if (lerp(bgBrightness[0], bgBrightness[1], 0.5)>200) fill(0);
   else {
     if (random(1)<0.8) {
       fill(0);
       rect(textEPos.x, textEPos.y, textESiz.x, textESiz.y);
-      fill(0xFF);
+      textColor = 0xFF;
     } else {
       fill(0xFF);
       rect(textEPos.x, textEPos.y, textESiz.x, textESiz.y);
-      fill(0);
+      textColor = color(0);
     }
   }
   textMode(CORNER);
   String phrase = text.get(currentLineText);
   currentLineText = (currentLineText+1)%text.size();
-  text(phrase, textEPos.x+borderMargins, textEPos.y+borderMargins, textESiz.x-borderMargins*2, textESiz.y-borderMargins*2);
+  PImage im = getTextAsImage(phrase, textESiz.x-borderMargins*2, textESiz.y-borderMargins*2, tS, textColor);
+  image(im, textEPos.x+borderMargins, textEPos.y+borderMargins);
+}
+
+PImage getTextAsImage(String phrase, float w, float h, float textSize, color textColor) {
+  int h2=-1;
+  // if text exceeds h, reduce the text size until the text fits in the PGraphics expected height
+  float heightScale = 3;
+  PGraphics pg = createGraphics((int)w, (int)(h*heightScale));
+  int y = 0, y2 = 0;
+  while (h2>h || h2==-1) {
+    textSize *= 0.9;
+    // disiplay the text at the right size on a taller PGraphics
+    pg = createGraphics((int)w, (int)(h*heightScale));
+    pg.beginDraw();
+    pg.textSize(textSize);
+    pg.textFont(font, textSize);
+    pg.textAlign(CENTER, CENTER);
+    pg.fill(textColor);
+    pg.text(phrase, 0, 0, w, h*heightScale);
+    pg.endDraw();
+    PImage im = pg.get();
+    im.loadPixels();
+    y = 0;
+    while (y<im.height) {
+      boolean empty = true;
+      for (int x=0; x<im.width; x++) {
+        if (im.pixels[y*im.width+x]!=0) {
+          empty = false;
+          break;
+        }
+      }
+      if (!empty) {
+        y--;
+        break;
+      }
+      y++;
+    }
+    y2 = im.height-1;
+    while (y2>=0) {
+      boolean empty = true;
+      for (int x=0; x<im.width; x++) {
+        if (im.pixels[y2*im.width+x]!=0) {
+          empty = false;
+          break;
+        }
+      }
+      if (!empty) {
+        y2++;
+        break;
+      }
+      y2--;
+    }
+    h2 = y2-y;
+  }
+  // crop and return the picture at the right size (h)
+  int alternate=0;
+  while(y2-y<h) {
+    if (alternate==0) y2++;
+    if (alternate==1) y--;
+    alternate=(alternate+1)%2;
+  }
+  return pg.get(0, y, floor(w), floor(y2-y));
 }
 
 void shiftImageList() {
