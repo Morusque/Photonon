@@ -65,6 +65,9 @@ boolean freezeEffect = false;
 
 int currentLineText = 0;
 
+boolean displayText = true;
+boolean displayTextBackground = true;
+
 void setup() {
   fullScreen();
   frameRate(60);
@@ -190,6 +193,8 @@ void keyPressed() {
   if (key=='e') interact("smear");
   if (key=='r') interact("symmetries");
   if (key=='t') interact("sorting");
+  if (key=='y') interact("displayText");
+  if (key=='u') interact("displayTextBackground");
   if (key=='i') interact("modulationSource");
   if (key=='v') interact("videoRec");
   if (key=='p') interact("packs");
@@ -232,6 +237,12 @@ void interact(String command) {
   }
   if (command.equals("sorting")) {// sorting
     displayMode = 4;
+  }
+  if (command.equals("displayText")) {
+    displayText ^= true;
+  }
+  if (command.equals("displayTextBackground")) {
+    displayTextBackground ^= true;
   }
   if (command.equals("modulationSource")) {// enable/disable audio input or midi mod
     modulationSource = (modulationSource+1)%3;
@@ -411,11 +422,11 @@ void displayTextAt(PVector textEPos, PVector textESiz) {
   else {
     if (random(1)<0.8) {
       fill(0);
-      rect(textEPos.x, textEPos.y, textESiz.x, textESiz.y);
+      if (displayTextBackground) rect(textEPos.x, textEPos.y, textESiz.x, textESiz.y);
       textColor = 0xFF;
     } else {
       fill(0xFF);
-      rect(textEPos.x, textEPos.y, textESiz.x, textESiz.y);
+      if (displayTextBackground) rect(textEPos.x, textEPos.y, textESiz.x, textESiz.y);
       textColor = color(0);
     }
   }
@@ -423,7 +434,7 @@ void displayTextAt(PVector textEPos, PVector textESiz) {
   String phrase = text.get(currentLineText);
   currentLineText = (currentLineText+1)%text.size();
   PImage im = getTextAsImage(phrase, textESiz.x-borderMargins*2, textESiz.y-borderMargins*2, tS, textColor);
-  image(im, textEPos.x+borderMargins, textEPos.y+borderMargins);
+  if (displayText) image(im, textEPos.x+borderMargins, textEPos.y+borderMargins);
 }
 
 PImage getTextAsImage(String phrase, float w, float h, float textSize, color textColor) {
@@ -479,7 +490,7 @@ PImage getTextAsImage(String phrase, float w, float h, float textSize, color tex
   }
   // crop and return the picture at the right size (h)
   int alternate=0;
-  while(y2-y<h) {
+  while (y2-y<h) {
     if (alternate==0) y2++;
     if (alternate==1) y--;
     alternate=(alternate+1)%2;
