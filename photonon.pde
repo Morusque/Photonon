@@ -68,6 +68,8 @@ int currentLineText = 0;
 boolean displayText = true;
 boolean displayTextBackground = true;
 
+PImage slideshowWithoutText;
+
 void setup() {
   fullScreen();
   frameRate(60);
@@ -196,6 +198,7 @@ void keyPressed() {
   if (key=='y') interact("displayText");
   if (key=='u') interact("displayTextBackground");
   if (key=='i') interact("modulationSource");
+  if (key=='o') interact("withoutText");
   if (key=='v') interact("videoRec");
   if (key=='p') interact("packs");
   if (key=='l') interact("reload");
@@ -243,6 +246,9 @@ void interact(String command) {
   }
   if (command.equals("displayTextBackground")) {
     displayTextBackground ^= true;
+  }
+  if (command.equals("withoutText")) {
+    if (slideshowWithoutText!=null) image(slideshowWithoutText,0,0);
   }
   if (command.equals("modulationSource")) {// enable/disable audio input or midi mod
     modulationSource = (modulationSource+1)%3;
@@ -300,6 +306,7 @@ void displayComposition() {
       image(croppedR, (float)width*1/2, 0, (float)width*1/2, (float)height);
       PVector textEPos = new PVector((float)floor(random(2))*width/2, (float)floor(random(1))*height/1);
       PVector textESiz = new PVector((float)width/2, (float)height/1);
+      slideshowWithoutText = get();
       displayTextAt(textEPos, textESiz);
     }
 
@@ -318,6 +325,7 @@ void displayComposition() {
           image(cropped, x*(float)width/nbX, y*(float)height/nbY, (float)width/nbX, (float)height/nbY);
         }
       }
+      slideshowWithoutText = get();
       boolean oneMoreText = true;
       while (oneMoreText) {
         int textIX1 = floor(random(nbX));
@@ -358,6 +366,7 @@ void displayComposition() {
           image(cropped, x*(float)width/nbX, y*(float)height/nbY, (float)width/nbX, (float)height/nbY);
         }
       }
+      slideshowWithoutText = get();
       if (random(1)<0.5) {
         PVector textEPos = new PVector(0, 0);
         PVector textESiz = new PVector(width, height);
@@ -379,6 +388,7 @@ void displayComposition() {
       image(croppedB, smallPosition.x, smallPosition.y, smallSize.x, smallSize.y);
       PVector textESiz = new PVector(random((float)width/3, (float)width/2), random((float)height/5, (float)height/4));
       PVector textEPos = new PVector(random(width-textESiz.x), random(height-textESiz.y));
+      slideshowWithoutText = get();
       displayTextAt(textEPos, textESiz);
     }
 
